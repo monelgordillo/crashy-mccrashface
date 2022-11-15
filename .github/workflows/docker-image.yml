@@ -7,6 +7,19 @@ name: Docker Image CI
 #  pull_request:
 #    branches: [ master ]
 
+env:
+  #RELEASE_REVISION: "pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}"
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #AWS_REGION: ${{ secrets.AWS_REGION }}
+  KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+  KUBE_NAMESPACE: production
+  #ECR_REPOSITORY: my-cool-application
+  #SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+  DOCKER_USER: ${{secrets.DOCKER_HUB_USERNAME}}
+  DOCKER_PASSWORD: ${{secrets.DOCKER_HUB_PASSWORD}}
+  DOCKER_REPO_NAME: "crashy-mccrashface"
+
 jobs:
 
   build:
@@ -16,20 +29,41 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: docker login
-      env:
-        DOCKER_USER: ${{secrets.DOCKER_HUB_USERNAME}}
-        DOCKER_PASSWORD: ${{secrets.DOCKER_HUB_PASSWORD}}
-      #run: |
-      #  docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+
       run: echo ${DOCKER_PASSWORD} | docker login --username "$DOCKER_USER" --password-stdin
     - name: Build the Docker image
-      env:
-        DOCKER_USER: ${{secrets.DOCKER_HUB_USERNAME}}
-      run: docker build . --file Dockerfile --tag ${DOCKER_USER}/crashy-mccrashface:${GITHUB_RUN_ID}
+
+      run: docker build . --file Dockerfile --tag ${DOCKER_USER}/${DOCKER_REPO_NAME}:${GITHUB_RUN_ID}
       
     - name: Docker Push
-      env:
-        DOCKER_USER: ${{secrets.DOCKER_HUB_USERNAME}}
+
       run: |
         docker images
-        docker push ${DOCKER_USER}/crashy-mccrashface:${GITHUB_RUN_ID}
+        docker push ${DOCKER_USER}/${DOCKER_REPO_NAME}:${GITHUB_RUN_ID}
+  deploy:
+    name: deploy to cluster
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+  
+    - name: Deploy to Kubernetes cluster                                                                            
+      uses: kodermax/kubectl-aws-eks@master                                                                         
+      env:                                                                                                          
+        RELEASE_IMAGE: ${{ env.DOCKER_USER }}/${{ env.DOCKER_REPO_NAME }}:${GITHUB_RUN_ID}
+      with:                                                                                                         
+        args: set image deployment/${DOCKER_REPO_NAME}-pod app=${{ env.RELEASE_IMAGE }} --record -n $KUBE_NAMESPACE   
+        
+    - name: verify deployment
+      uses: kodermax/kubectl-aws-eks@master
+      env:
+        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+      with:
+        args: rollout status deployment/${DOCKER_REPO_NAME}-pod -n $KUBE_NAMESPACE 
