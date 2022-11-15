@@ -30,5 +30,6 @@ jobs:
     - name: Docker Push
       env:
         DOCKER_USER: ${{secrets.DOCKER_HUB_USERNAME}}
-      run: docker images
-      run: docker push ${DOCKER_USER}/crashy-mccrashface
+      run: |
+        docker images
+        docker push ${DOCKER_USER}/crashy-mccrashface
