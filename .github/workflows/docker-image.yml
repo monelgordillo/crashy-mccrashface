@@ -25,11 +25,11 @@ jobs:
     - name: Build the Docker image
       env:
         DOCKER_USER: ${{secrets.DOCKER_HUB_USERNAME}}
-      run: docker build . --file Dockerfile --tag ${DOCKER_USER}/crashy-mccrashface:$(date +%s)
+      run: docker build . --file Dockerfile --tag ${DOCKER_USER}/crashy-mccrashface:${GITHUB_RUN_ID}
       
     - name: Docker Push
       env:
         DOCKER_USER: ${{secrets.DOCKER_HUB_USERNAME}}
       run: |
         docker images
-        docker push ${DOCKER_USER}/crashy-mccrashface
+        docker push ${DOCKER_USER}/crashy-mccrashface:${GITHUB_RUN_ID}
