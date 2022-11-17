@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crashy-mccrashface-app-deployment
+  labels:
+    app: crashy-mccrashface-app
+  namespace: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crashy-mccrashface-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: crashy-mccrashface-app 
+    spec:
+      containers:
+      - name: crashy-mccrashface-app
+        image: bigbadmo/crashy-mccrashface:3466825155
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8081
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8081
+          initialDelaySeconds: 3
+          periodSeconds: 5
+      imagePullSecrets:
+      - name: regcred
